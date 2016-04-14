@@ -6,6 +6,10 @@ import errno
 
 from StringIO import StringIO
 
+import logging
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger(__name__)
+
 from httprequest import HttpRequest, BadRequestError
 from httpresponse import HttpResponse
 
@@ -31,15 +35,17 @@ class HttpRequestHandler(object):
 
         self.data = self.rfile.read()
         self.request = HttpRequest(self.data)
+        LOG.info('Received request: {}'.format(self.request.request_line))
 
         handler_method_name = 'respond_to_' + self.request.http_verb
         handler_method = getattr(self, handler_method_name, None)
         if not handler_method:
-            raise NotImplementedError("Verb {} not supported.".format(self.request.http_verb))
+            raise NotImplementedError("HTTP verb {} not supported.".format(self.request.http_verb))
 
         response = handler_method()
         response.headers['Date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
         self.wfile.write(response.render())
+        LOG.info('Sent response: {}'.format(response.lines[0]))
         self.wfile.flush()
 
     def respond_to_GET(self):
@@ -116,6 +122,3 @@ class HttpRequestHandler(object):
                     path = index_path
 
         return path, query, fragment 
-
-    def handle_error(self):
-        pass

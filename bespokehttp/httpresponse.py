@@ -35,20 +35,20 @@ class HttpResponse(object):
         return default_headers
 
     def render(self):
-        lines = []
+        self.lines = []
 
         status_line = ['HTTP/1.0', str(self.status_code), self.status_description]
-        lines.append(' '.join(status_line))
+        self.lines.append(' '.join(status_line))
 
         for header in self.headers.items():
-            lines.append(': '.join(header))
+            self.lines.append(': '.join(header))
 
-        lines.append('')
+        self.lines.append('')
 
         if self.content:
-            lines.append(self.content)
+            self.lines.append(self.content)
         
-        return '\r\n'.join(lines)
+        return '\r\n'.join(self.lines)
 
 
     statuses = {
