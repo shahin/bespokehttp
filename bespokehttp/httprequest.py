@@ -40,10 +40,9 @@ class HttpRequest(object):
     @staticmethod
     def parse_header_lines(lines):
         headers = {}
-        token_sep = ' '
 
         for line in lines:
-            field_name, field_contents = line.split(token_sep, ' ', 1)
+            field_name, field_contents = line.split(' ', 1)
             field_name = field_name.rstrip(':')
             headers[field_name] = field_contents
 

@@ -4,7 +4,10 @@ import mimetypes
 import urllib
 import errno
 
-import SocketServer
+import socket
+from StringIO import StringIO
+import logging
+
 from httprequest import HttpRequest, BadRequestError
 from httpresponse import HttpResponse
 
@@ -14,17 +17,48 @@ class PermissionDeniedError(Exception):
 class NonexistentResourceError(Exception):
     pass
 
-class HttpServer(SocketServer.TCPServer):
-    pass
+class HttpServer(object):
+
+    def __init__(self, host, port, handler_klass):
+        self.host = host
+        self.port = port
+        self.handler_klass = handler_klass
+        self.n_requests = 1
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((self.host, self.port, ))
+
+    def serve(self):
+        self.socket.listen(self.n_requests)
+
+        while True:
+            try:
+                conn, addr = self.socket.accept()
+                request_data = conn.recv(1024)
+                if request_data:
+                    request_handler = self.handler_klass(request_data)
+                    request_handler.handle()
+                    request_handler.wfile.seek(0)
+                    conn.sendall(request_handler.wfile.read())
+            except KeyboardInterrupt:
+                break
+        
+        self.socket.close()
 
 
-class HttpRequestHandler(SocketServer.StreamRequestHandler):
+class HttpRequestHandler(object):
     '''Parse a request, then construct and write a response.'''
+
+    def __init__(self, request_data):
+        self.rfile, self.wfile = StringIO(), StringIO()
+        self.rfile.write(request_data)
+        self.rfile.flush()
+        self.rfile.seek(0)
 
     def handle(self):
         '''Read the request and write the response.'''
 
-        self.data = self.rfile.readline().strip()
+        self.data = self.rfile.read()
         self.request = HttpRequest(self.data)
 
         handler_method_name = 'respond_to_' + self.request.http_verb
@@ -63,13 +97,13 @@ class HttpRequestHandler(SocketServer.StreamRequestHandler):
 
     @staticmethod
     def read_resource(path):
-        '''Returns the contents of the given path.
-
-        If the path refers to a directory, returns the directory listing of that path as a string.
-        '''
+        '''Returns the contents of file at the given path.
+        
+        If the path does not point to a file, raise a NonexistentResourceError. If the file exists
+        but this user doesn't have permission, raise a PermissionDeniedError.'''
 
         if os.path.isdir(path):
-            return get_directory_list(path)
+            return NonexistentResourceError()
 
         contents = None
 
@@ -119,5 +153,5 @@ class HttpRequestHandler(SocketServer.StreamRequestHandler):
 if __name__ == '__main__':
 
     HOST, PORT = 'localhost', 9191
-    server = HttpServer((HOST, PORT, ), HttpRequestHandler)
-    server.serve_forever()
+    server = HttpServer(HOST, PORT, HttpRequestHandler)
+    server.serve()
