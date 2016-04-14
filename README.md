@@ -1,4 +1,4 @@
-# bespokehttp
+# bespokehttp  [![Build Status](https://travis-ci.org/shahin/bespokehttp.svg?branch=master)](https://travis-ci.org/shahin/bespokehttp)
 A bespoke HTTP server for static files.
 
 ### Objective
