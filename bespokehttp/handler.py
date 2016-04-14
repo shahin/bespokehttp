@@ -53,9 +53,6 @@ class HttpRequestHandler(object):
 
         resource_path, _, _ = self.get_resource_path(self.request.path)
 
-        if not self.authorized(resource_path):
-            return HttpResponse(403, None)
-
         try:
             type, encoding, content = self.read_resource(resource_path)
             response = HttpResponse(200, content)
@@ -97,13 +94,6 @@ class HttpRequestHandler(object):
 
         type, encoding = mimetypes.guess_type(path)
         return type, encoding, contents
-
-    def authorized(self, path):
-        '''Returns True if the request passes handler-level authorization tests.'''
-        serving_base_path = os.getcwd()
-        if not path.startswith(serving_base_path):
-            return False
-        return True
 
     @staticmethod
     def get_resource_path(path):
