@@ -20,7 +20,7 @@ class HttpResponse(object):
 
     @property
     def status_description(self):
-        return self.statuses.get(self.status_code, None)
+        return self.statuses.get(self.status_code, '')
 
     @property
     def default_headers(self):
@@ -34,24 +34,30 @@ class HttpResponse(object):
             default_headers['Content-Length'] = str(content_length)
         return default_headers
 
-    def render(self):
-        self.lines = []
+    @property
+    def lines(self):
+        _lines = []
 
         status_line = ['HTTP/1.0', str(self.status_code), self.status_description]
-        self.lines.append(' '.join(status_line))
+        _lines.append(' '.join(status_line))
 
         for header in self.headers.items():
-            self.lines.append(': '.join(header))
+            _lines.append(': '.join(header))
 
-        self.lines.append('')
+        _lines.append('')
 
         if self.content:
-            self.lines.append(self.content)
-        
+            _lines.append(self.content)
+
+        return _lines
+
+    def render(self):
+        '''Return the full HTTP response message.'''
         return '\r\n'.join(self.lines)
 
 
     statuses = {
         200: 'OK',
+        403: 'Forbidden',
         404: 'Not Found',
     }
