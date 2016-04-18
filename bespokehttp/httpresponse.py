@@ -53,11 +53,14 @@ class HttpResponse(object):
 
     def render(self):
         '''Return the full HTTP response message.'''
-        return '\r\n'.join(self.lines)
+        header_lines = self.lines[:-1] if self.content else self.lines
+        header = '\r\n'.join(header_lines)
+        return header.encode()
 
 
     statuses = {
         200: 'OK',
+        400: 'Bad Request',
         403: 'Forbidden',
         404: 'Not Found',
     }

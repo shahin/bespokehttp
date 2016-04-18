@@ -1,3 +1,4 @@
+import io
 import socket
 from handler import HttpRequestHandler
 
@@ -15,24 +16,20 @@ class HttpServer(object):
 
     def serve(self):
         self.socket.listen(self.n_requests)
-
-        while True:
-            try:
-                conn, addr = self.socket.accept()
-                request_data = conn.recv(1024)
-                if request_data:
-                    request_handler = self.handler_klass(request_data)
-                    request_handler.handle()
-                    request_handler.wfile.seek(0)
-                    conn.sendall(request_handler.wfile.read())
-            except KeyboardInterrupt:
-                break
+        recv_buffer = io.BytesIO()
         
-        self.socket.close()
+        while True:
+            conn, addr = self.socket.accept()
+            recv_buffer.write(conn.recv(1024))
 
+            request_handler = self.handler_klass(recv_buffer.getvalue())
+            response = request_handler.handle()
+            if response:
+                print(response)
+                conn.sendall(response)
 
 if __name__ == '__main__':
 
-    HOST, PORT = 'localhost', 9191
+    HOST, PORT = 'localhost', 9192
     server = HttpServer(HOST, PORT, HttpRequestHandler)
     server.serve()
