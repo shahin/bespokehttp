@@ -1,6 +1,18 @@
+'''A bespoke HTTP server.
+
+Usage:
+  server.py [--port=<num>]
+
+Options:
+  -h --help     Show this screen
+  --port=<num>  The port number to listen on [default: 9191]
+
+'''
 import io
 import socket
-from handler import HttpRequestHandler
+
+from docopt import docopt
+from handler import CgiRequestHandler
 
 
 class HttpServer(object):
@@ -30,11 +42,12 @@ class HttpServer(object):
                 response = request_handler.handle()
                 if response:
                     recv_buffer = io.BytesIO()
-                    print(response)
                     conn.sendall(response)
 
 if __name__ == '__main__':
 
-    HOST, PORT = 'localhost', 9192
-    server = HttpServer(HOST, PORT, HttpRequestHandler)
+    args = docopt(__doc__)
+
+    HOST, PORT = 'localhost', int(args['--port'])
+    server = HttpServer(HOST, PORT, CgiRequestHandler)
     server.serve()
