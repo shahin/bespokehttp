@@ -10,6 +10,7 @@ Options:
 '''
 import io
 import socket
+import select
 
 from docopt import docopt
 from handler import CgiRequestHandler
@@ -28,21 +29,35 @@ class HttpServer(object):
 
     def serve(self):
         self.socket.listen(self.n_requests)
-        recv_buffer = io.BytesIO()
         
-        conn, addr = self.socket.accept()
+        open_sockets = []
+        recv_buffers = {}
 
         while True:
-            recv_data = conn.recv(1024)
-            if recv_data:
 
-                recv_buffer.write(recv_data)
+            readable, writable, exceptional = select.select([self.socket] + open_sockets, [], [])
 
-                request_handler = self.handler_klass(recv_buffer.getvalue())
-                response = request_handler.handle()
-                if response:
-                    recv_buffer = io.BytesIO()
-                    conn.sendall(response)
+            for readable_socket in readable:
+
+                if readable_socket is self.socket:
+                    sock, addr = self.socket.accept()
+                    open_sockets.append(sock)
+                    recv_buffers[sock] = io.BytesIO()
+
+                else:
+                    recv_data = readable_socket.recv(1024)
+                    if recv_data:
+
+                        recv_buffers[readable_socket].write(recv_data)
+
+                        request_handler = self.handler_klass(
+                            recv_buffers[readable_socket].getvalue()
+                        )
+                        response = request_handler.handle()
+                        print(response)
+                        if response:
+                            recv_buffers[readable_socket] = io.BytesIO()
+                            readable_socket.sendall(response)
 
 if __name__ == '__main__':
 
