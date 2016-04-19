@@ -11,7 +11,7 @@ class HttpRequestTestCase(unittest.TestCase):
 
     def test_parse_request_line(self):
         request_line = b'GET /abc/def.html HTTP/1.0'
-        expected = (b'GET', b'/abc/def.html', b'HTTP/1.0')
+        expected = ('GET', '/abc/def.html', 'HTTP/1.0')
         actual = HttpRequest.parse_request_line(request_line)
         self.assertEqual(expected, actual)
 
@@ -38,18 +38,18 @@ class HttpRequestTestCase(unittest.TestCase):
     def test_parse_get_requests(self):
         request_message = b'GET /abc/def.html HTTP/1.0\r\n\r\n'
         request = HttpRequest(request_message)
-        self.assertEqual(request.http_verb, b'GET')
-        self.assertEqual(request.version, b'HTTP/1.0')
-        self.assertEqual(request.path, b'/abc/def.html')
+        self.assertEqual(request.http_verb, 'GET')
+        self.assertEqual(request.version, 'HTTP/1.0')
+        self.assertEqual(request.path, '/abc/def.html')
         self.assertEqual(request.headers, {})
         self.assertEqual(request.content_length, 0)
         self.assertEqual(request.body, b'')
 
         request_message = b'GET /abc/def.html HTTP/1.0\r\nContent-Type: text/plain\r\n\r\n'
         request = HttpRequest(request_message)
-        self.assertEqual(request.http_verb, b'GET')
-        self.assertEqual(request.version, b'HTTP/1.0')
-        self.assertEqual(request.path, b'/abc/def.html')
+        self.assertEqual(request.http_verb, 'GET')
+        self.assertEqual(request.version, 'HTTP/1.0')
+        self.assertEqual(request.path, '/abc/def.html')
         self.assertEqual(request.headers, {b'Content-Type': b'text/plain'})
         self.assertEqual(request.content_length, 0)
         self.assertEqual(request.body, b'')
@@ -57,18 +57,18 @@ class HttpRequestTestCase(unittest.TestCase):
     def test_parse_post_requests(self):
         request_message = b'POST /abc/def.html HTTP/1.0\r\nContent-Length: 0\r\n\r\n'
         request = HttpRequest(request_message)
-        self.assertEqual(request.http_verb, b'POST')
-        self.assertEqual(request.version, b'HTTP/1.0')
-        self.assertEqual(request.path, b'/abc/def.html')
+        self.assertEqual(request.http_verb, 'POST')
+        self.assertEqual(request.version, 'HTTP/1.0')
+        self.assertEqual(request.path, '/abc/def.html')
         self.assertEqual(request.headers, {b'Content-Length': b'0'})
         self.assertEqual(request.content_length, 0)
         self.assertEqual(request.body, b'')
 
         request_message = b'POST /abc/def.html HTTP/1.0\r\nContent-Length: 2\r\n\r\nab'
         request = HttpRequest(request_message)
-        self.assertEqual(request.http_verb, b'POST')
-        self.assertEqual(request.version, b'HTTP/1.0')
-        self.assertEqual(request.path, b'/abc/def.html')
+        self.assertEqual(request.http_verb, 'POST')
+        self.assertEqual(request.version, 'HTTP/1.0')
+        self.assertEqual(request.path, '/abc/def.html')
         self.assertEqual(request.headers, {b'Content-Length': b'2'})
         self.assertEqual(request.content_length, 2)
         self.assertEqual(request.body, b'ab')

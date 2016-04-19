@@ -30,7 +30,7 @@ class HttpRequest(object):
         try:
             self.content_length = int(self.headers[b'Content-Length'])
         except KeyError:
-            if self.http_verb in (b'POST', ):
+            if self.http_verb in ('POST', ):
                 raise MissingContentLengthError()
 
         if len(self.body) < self.content_length:
@@ -78,7 +78,7 @@ class HttpRequest(object):
         else:
             raise InvalidRequestError("Invalid request line does not contain exactly 3 tokens")
         
-        return http_verb, path, version
+        return http_verb.decode(), path.decode(), version.decode()
 
     @staticmethod
     def parse_header_lines(lines):
