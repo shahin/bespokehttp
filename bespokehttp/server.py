@@ -18,15 +18,20 @@ class HttpServer(object):
         self.socket.listen(self.n_requests)
         recv_buffer = io.BytesIO()
         
-        while True:
-            conn, addr = self.socket.accept()
-            recv_buffer.write(conn.recv(1024))
+        conn, addr = self.socket.accept()
 
-            request_handler = self.handler_klass(recv_buffer.getvalue())
-            response = request_handler.handle()
-            if response:
-                print(response)
-                conn.sendall(response)
+        while True:
+            recv_data = conn.recv(1024)
+            if recv_data:
+
+                recv_buffer.write(recv_data)
+
+                request_handler = self.handler_klass(recv_buffer.getvalue())
+                response = request_handler.handle()
+                if response:
+                    recv_buffer = io.BytesIO()
+                    print(response)
+                    conn.sendall(response)
 
 if __name__ == '__main__':
 
