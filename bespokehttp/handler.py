@@ -3,15 +3,14 @@ import time
 import mimetypes
 import urllib
 import errno
-
-from StringIO import StringIO
+import io
 
 import logging
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
-from httprequest import HttpRequest, BadRequestError
-from httpresponse import HttpResponse
+from bespokehttp.httprequest import HttpRequest, IncompleteRequestError, InvalidRequestError
+from bespokehttp.httpresponse import HttpResponse
 
 
 class PermissionDeniedError(Exception):
@@ -24,29 +23,34 @@ class NonexistentResourceError(Exception):
 class HttpRequestHandler(object):
     '''Parse a request, then construct and write a response.'''
 
-    def __init__(self, request_data):
-        self.rfile, self.wfile = StringIO(), StringIO()
-        self.rfile.write(request_data)
-        self.rfile.flush()
-        self.rfile.seek(0)
+    def __init__(self, data):
+        self.data = io.BytesIO(data)
 
     def handle(self):
         '''Read the request and write the response.'''
 
-        self.data = self.rfile.read()
-        self.request = HttpRequest(self.data)
-        LOG.info('Received request: {}'.format(self.request.request_line))
+        LOG.info('Reading request: {}'.format(self.data.getvalue()))
 
-        handler_method_name = 'respond_to_' + self.request.http_verb
-        handler_method = getattr(self, handler_method_name, None)
-        if not handler_method:
-            raise NotImplementedError("HTTP verb {} not supported.".format(self.request.http_verb))
+        try:
+            self.request = HttpRequest(self.data.getvalue())
+        except IncompleteRequestError:
+            # keep collecting data from the connection
+            return b'' 
+        except InvalidRequestError:
+            # send a response that says what it got is invalid, no matter what comes next
+            # e.g. a CR or LF before the end of the first line
+            response = HttpResponse(400)
+        else:
+            handler_method_name = 'respond_to_' + self.request.http_verb.decode()
+            handler_method = getattr(self, handler_method_name, None)
+            if handler_method:
+                response = handler_method()
+            else:
+                response = HttpResponse(405)
 
-        response = handler_method()
         response.headers['Date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
-        self.wfile.write(response.render())
-        LOG.info('Sent response: {}'.format(response.lines[0]))
-        self.wfile.flush()
+        LOG.info('Sending response: {}'.format(response.lines[0]))
+        return response.render()
 
     def respond_to_GET(self):
         '''Returns an HttpResponse to a GET request.'''
@@ -84,7 +88,7 @@ class HttpRequestHandler(object):
         try:
             f = open(path, 'rb')
             contents = f.read()
-        except IOError, e:
+        except IOError as e:
             if e.errno == errno.EACCES:
                 raise PermissionDeniedError()
             elif e.errno == errno.ENOENT:
@@ -99,11 +103,12 @@ class HttpRequestHandler(object):
     def get_resource_path(path):
         '''Returns a 3-tuple of the absolute path, query string, and URL fragment of the resource
         requested by the request URL.'''
+        path = path.decode()
         path, _, fragment = path.partition('#')
         path, _, query = path.partition('?')
         path = path[1:]
 
-        path = os.path.abspath(urllib.unquote(path))
+        path = os.path.abspath(urllib.parse.unquote(path))
 
         if os.path.isdir(path):
             for index_file_name in ('index.html', 'index.htm', ):

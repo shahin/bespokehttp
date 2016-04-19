@@ -1,4 +1,5 @@
 import sys
+import io
 import inspect
 
 class HttpResponse(object):
@@ -53,11 +54,22 @@ class HttpResponse(object):
 
     def render(self):
         '''Return the full HTTP response message.'''
-        return '\r\n'.join(self.lines)
+
+        message = io.BytesIO()
+
+        header_lines = self.lines[:-1] if self.content else self.lines
+        header = '\r\n'.join(header_lines) + '\r\n'
+        message.write(header.encode())
+
+        if self.content:
+            message.write(self.lines[-1])
+
+        return message.getvalue()
 
 
     statuses = {
         200: 'OK',
+        400: 'Bad Request',
         403: 'Forbidden',
         404: 'Not Found',
     }
