@@ -4,6 +4,8 @@ import mimetypes
 import urllib
 import errno
 import io
+import pwd
+import inspect
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +13,7 @@ LOG = logging.getLogger(__name__)
 
 from bespokehttp.httprequest import HttpRequest, IncompleteRequestError, InvalidRequestError
 from bespokehttp.httpresponse import HttpResponse
+from bespokehttp import __version__
 
 
 class PermissionDeniedError(Exception):
@@ -117,3 +120,88 @@ class HttpRequestHandler(object):
                     path = index_path
 
         return path, query, fragment 
+
+
+class CgiRequestHandler(HttpRequestHandler):
+
+    cgi_directory = os.path.abspath('cgi-bin')
+
+    def is_cgi_script(path):
+        return path.startswith(self.cgi_directory)
+
+    def respond_to_noncgi_GET(self):
+        return super().respond_to_GET()
+
+    def respond_to_cgi_GET(self):
+        resource_path, query, fragment = self.get_resource_path(self.request.path)
+
+        try:
+            content = self.run_cgi_script(resource_path, query)
+            response = HttpResponse(200, content)
+        except PermissionDeniedError:
+            response = HttpResponse(403, None)
+        except NonexistentResourceError:
+            response = HttpResponse(404, None)
+
+        return response
+
+    def respond_to_GET(self):
+        '''Returns an HttpResponse to a GET request.'''
+
+        if self.is_cgi_script(resource_path):
+            return self.respond_to_cgi_GET()
+
+        return self.respond_to_noncgi_GET()
+
+    def run_cgi_script(self, script_path, query=None, data=None):
+
+        infile = tempfile.TemporaryFile(bufsize=0)
+        outfile = tempfile.TemporaryFile()
+        script_name = os.path.basename(script_path)
+
+        child_environ = self.get_environment_variables(query)
+        child_pid = os.fork()
+
+        if child_pid:
+            # in the parent process
+            pid, exit_status = os.waitpid(child_pid)
+            if exit_status:
+                raise HttpResponse(500, 'CGI error')
+        else:
+            # in the child process
+            try:
+                os.dup2(infile.fileno(), 0)
+                if data:
+                    infile.write(data)
+                os.dup2(outfile.fileno(), 1)
+                os.execve(script_path, [script_name], child_environ) 
+            except:
+                os._exit(1)
+
+        outfile.seek(0)
+        return outfile.read()
+
+    def get_environment_variables(self):
+        server_software = "{0} v{1}".format(__name__.split('.')[0], __version__)
+        return {
+            'SERVER_SOFTWARE': server_software,
+            'SERVER_NAME': '',
+            'GATEWAY_INTERFACE': 'CGI/1.1',
+
+            'SERVER_PROTOCOL': '',
+            'SERVER_PORT': '',
+            'REQUEST_METHOD': self.request.http_verb,
+            'PATH_INFO': '',
+            'PATH_TRANSLATED': '',
+
+            'SCRIPT_NAME': '',
+            'QUERY_STRING': '',
+            'REMOTE_HOST': '',
+            'REMOTE_ADDR': '',
+
+            'AUTH_TYPE': '',
+            'REMOTE_USER': '',
+            'REMOTE_IDENT': '',
+            'CONTENT_TYPE': '',
+            'CONTENT_LENGTH': '',
+        }
